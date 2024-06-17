@@ -1,0 +1,11 @@
+﻿@{
+    ViewData["Title"] = "Testaufgabe";
+}
+
+<div class="text-center" id="targetData"></div>
+
+<script>
+    $.get('@(Url.Action("AjaxTable", "ToDo"))', function (data) {
+        $('#targetData').html(data);
+    });
+</script>

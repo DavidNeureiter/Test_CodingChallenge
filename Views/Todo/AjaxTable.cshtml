@@ -1,0 +1,181 @@
+﻿@using websLINE.Database
+
+@model List<TodoEntry>
+
+<div class="container">
+
+    <div class="d-flex justify-content-end mb-3">
+        <button class="btn btn-outline-secondary" id="refreshButton" onclick="UpdateToDo()">
+            <img src="https://img.icons8.com/ios-filled/50/000000/update-left-rotation.png" alt="Update Image" style="height: 20px; width: 20px; margin-right: 5px;" />
+            Tabelle aktualisieren
+        </button>
+    </div>
+    @* Header of the table *@
+    <table>
+        <thead>
+            <tr>
+                <th width="20%">Erstellt am</th>
+                <th width="10%">Bezeichnung</th>
+                <th width="70%">Beschreibung</th>
+                <th width="10%">Checkbox</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            @foreach (TodoEntry entry in Model)
+            {
+                <tr data-item-id="@entry.Id">
+                    <td>@entry.CreatedAt</td>
+                    <td>@entry.Caption</td>
+                    <td>@entry.Description</td>
+                    <td><input type="checkbox" class="ToDoCheckBox" onchange="checkboxChanged(@entry.Id, this.checked)" id="checkbox-@entry.Id" @(entry.FinishedAt != null ? "checked" : "") /></td>
+                    <td></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @* Button to add a TODO *@
+    <div class="d-flex justify-content-end mt-3">
+        <button class="btn btn-outline-secondary" id="addTodoButton" onclick="addNewToDo()">
+            <img src="https://img.icons8.com/ios-filled/50/000000/add-list.png" alt="AddToDo" style="height: 20px; width: 20px; margin-right: 5px;" />
+            Augabe hinzufügen
+        </button>
+    </div>
+    @* Show the user that all tasks are complete *@
+    <div id="greenBlock" style="display: none; background-color: lightgreen; padding: 10px;">
+        Alle Aufgaben abgeschlossen!
+    </div>
+    @* Add a toast message to inform the user *@
+    <div class="toast" id="toast" style="position: fixed; top: 20px; right: 20px;" data-delay="1500">
+        <div class="toast-header">
+            <strong class="mr-auto">Mitteilung</strong>
+        </div>
+        <div class="toast-body" id="toast-body">
+        </div>
+    </div>
+
+</div>
+<script>
+    // Update the ToDo List
+    function UpdateToDo() {
+        console.log('Refresh button clicked');
+        //Get the existing data
+        $.get('@Url.Action("GetTodoEntries", "ToDo")', function (data) {
+
+            var tableBody = $('#tableBody');
+            tableBody.empty();
+            $(data).each(function (index, entry) {
+                //for debug
+                //console.log(entry);
+                tableBody.append(`
+                                    <tr data-item-id="${entry.id}">
+                                        <td>${formatDateTime(entry.createdAt)}</td>
+                                        <td>${entry.caption}</td>
+                                        <td>${entry.description}</td>
+                                            <td><input type="checkbox" class="ToDoCheckBox" ${entry.finishedAt != null ? "checked" : ""} onchange="checkboxChanged(${entry.id}, this.checked)" /></td>
+                                        <td></td>
+                                    </tr>
+                                     `);
+            });
+            //Done adding all values
+            //Check if all tastks are done
+            toggleGreenBlock();
+        }).fail(function () {
+            console.log('Error fetching updated data');
+            showToast('Die Daten konnten nicht aktualisiert werden.');
+        });
+    }
+    //Update the CheckBoxInfo
+    function addNewToDo(itemId, isChecked) {
+        console.log(`Checkbox ${itemId} checked: ${isChecked}`);
+        //Set new data
+        $.ajax({
+            //Set 0 since it is a new value
+            url: '@Url.Action("SaveEntry", "ToDo")' + '?id=' + 0,
+            type: 'POST',
+            data: {
+            },
+            success: function (result) {
+                console.log('Entry saved successfully');
+                showToast('Ein Datensatz wurde hinzugefügt.' +'\n' + 'Bitte aktualisieren Sie die Tabelle.');
+            },
+            error: function () {
+                console.error('Error saving entry');
+                showToast('Der Datensatz konnte nicht angelegt werden.');
+            }
+        });
+    }
+    //Update the CheckBoxInfo
+    function checkboxChanged(itemId, isChecked) {
+        console.log(`Checkbox ${itemId} checked: ${isChecked}`);
+
+        $.ajax({
+            url: '@Url.Action("SaveEntry", "ToDo")' + '?id=' + itemId,
+            type: 'POST',
+            data: {
+                Finished: isChecked
+            },
+            success: function (result) {
+                console.log('Entry saved successfully');
+                toggleGreenBlock();
+            },
+            error: function () {
+                console.error('Error saving entry');
+                showToast('Die Daten konnten nicht aktualisiert werden.');
+
+            }
+        });
+    }
+    //Set a good dateTime format
+    function formatDateTime(date) {
+        if (!(date instanceof Date)) {
+            date = new Date(date);
+        }
+        const pad = (number) => number.toString().padStart(2, '0');
+
+        const day = pad(date.getDate());
+        const month = pad(date.getMonth() + 1);
+        const year = date.getFullYear();
+
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+        const seconds = pad(date.getSeconds());
+        //return dateTime format
+        return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+    }
+    //Show a toast message
+    function showToast(message) {
+        $('#toast-body').text(message);
+        //Show the message
+        $('#toast').toast('show');
+    }
+
+    // Function to check if all checkboxes are checked
+    function checkAllCheckboxes() {
+        var allChecked = true;
+        $('input[type="checkbox"]').each(function () {
+            if (!this.checked) {
+                allChecked = false;
+                console.log('A checkbox has not been checked');
+                return false; //A checbox has not been checked
+            }
+        });
+
+        return allChecked;
+    }
+
+    //Show or hide the green block
+    function toggleGreenBlock() {
+        if (checkAllCheckboxes()) {
+            $('#greenBlock').show();
+        } else {
+            $('#greenBlock').hide();
+        }
+    }
+    $('input[type="checkbox"]').on('change', function () {
+        toggleGreenBlock();
+    });
+
+    // Initial check when the page loads
+    toggleGreenBlock();
+
+</script>

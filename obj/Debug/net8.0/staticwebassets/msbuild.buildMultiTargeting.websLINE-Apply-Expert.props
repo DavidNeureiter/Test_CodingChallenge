@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\websLINE-Apply-Expert.props" />
+</Project>
